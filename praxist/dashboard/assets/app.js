@@ -118,12 +118,14 @@ function renderOverview() {
   byId("metric-total").textContent = `${display(counts.total, "0")} known`;
   byId("metric-generations").textContent = display(counts.committed_generations, "0");
   byId("metric-findings").textContent = compactNumber(counts.findings || 0);
-  byId("metric-attention").textContent = display(counts.attention, "0");
-  document.querySelector(".attention-card")?.classList.toggle("has-attention", Number(counts.attention) > 0);
+  const attention = Number(counts.attention || 0) + Number(counts.setup_attention || 0);
+  byId("metric-attention").textContent = display(attention, "0");
+  document.querySelector(".attention-card")?.classList.toggle("has-attention", attention > 0);
   byId("host-line").textContent = `${overview.host?.hostname || "local host"} · PID ${overview.host?.pid || "—"} · ${overview.host?.cpu_count || "?"} logical CPUs`;
   byId("run-count-badge").textContent = display(counts.total, "0");
   renderMode();
   renderWarnings();
+  renderSetupTasks();
   renderRunList();
   renderHost();
 }
@@ -146,6 +148,59 @@ function renderWarnings() {
   }
   byId("warning-text").textContent = warnings.slice(0, 3).join(" · ");
   strip.classList.remove("hidden");
+}
+
+function renderSetupTasks() {
+  const tasks = app.overview?.setup_tasks || [];
+  const source = app.overview?.setup || {};
+  const list = byId("setup-task-list");
+  const sourceStatus = byId("setup-source-status");
+  byId("setup-count-badge").textContent = tasks.length;
+  sourceStatus.textContent = display(source.status, "unknown").replaceAll("_", " ");
+  sourceStatus.className = `health-chip setup-health ${stateClass(source.status)}`;
+  if (!tasks.length) {
+    const warnings = source.warnings || [];
+    const message = source.status === "sampling"
+      ? "Sampling recent Codex tasks in the background…"
+      : source.status === "disabled"
+        ? "Codex setup discovery is disabled for this dashboard session."
+        : source.status === "unavailable"
+          ? `Codex setup discovery is unavailable.${warnings.length ? ` ${warnings[0]}` : ""}`
+          : "No recent takeover task or nearby external task project was detected.";
+    list.innerHTML = `<div class="setup-empty">${esc(message)}</div>`;
+    return;
+  }
+  list.innerHTML = tasks.map((task) => {
+    const linked = task.linked_run;
+    const taskLabel = task.task_name || basename(task.task_path) || "Task manifest pending";
+    const status = setupStageLabel(task.stage);
+    return `<article class="setup-task-card ${stateClass(task.stage)}">
+      <header>
+        <span class="setup-stage"><i></i>${esc(status)}</span>
+        <time>${esc(relativeTime(task.updated_at))}</time>
+      </header>
+      <h3 title="${esc(task.title)}">${esc(task.title)}</h3>
+      <p class="setup-task-name" title="${esc(taskLabel)}">${esc(taskLabel)}</p>
+      <p class="setup-task-meta">${esc(task.project || "local project")} · ${esc(task.turn_status ? `checkpoint ${task.turn_status}` : linked?.state || "manifest detected")}</p>
+      <footer>
+        ${task.capabilities?.can_copy_resume ? `<button type="button" data-copy-resume="${esc(task.resume_command)}">Copy resume</button>` : ""}
+        ${task.capabilities?.can_copy_task_path ? `<button type="button" data-copy-task-path="${esc(task.task_path)}">Copy task path</button>` : ""}
+        ${task.capabilities?.can_open_run && linked?.key ? `<button type="button" class="open-run" data-linked-run="${esc(linked.key)}">Open ${esc(linked.run_id || "run")}</button>` : ""}
+      </footer>
+    </article>`;
+  }).join("");
+}
+
+function setupStageLabel(stage) {
+  return ({
+    running: "Run live",
+    working: "Codex working",
+    awaiting_approval: "Awaiting approval",
+    failed: "Needs repair",
+    interrupted: "Checkpoint interrupted",
+    ready: "Ready to launch",
+    initializing: "Initializing",
+  })[stage] || display(stage, "Unknown");
 }
 
 function filteredRuns() {
@@ -447,6 +502,31 @@ function wireEvents() {
     renderRunList();
     renderDetail();
     await refreshDetail();
+  });
+  byId("setup-task-list").addEventListener("click", async (event) => {
+    const resume = event.target.closest("[data-copy-resume]");
+    if (resume) {
+      await copyText(resume.dataset.copyResume, "Codex resume command copied");
+      return;
+    }
+    const taskPath = event.target.closest("[data-copy-task-path]");
+    if (taskPath) {
+      await copyText(taskPath.dataset.copyTaskPath, "Task project path copied");
+      return;
+    }
+    const linkedRun = event.target.closest("[data-linked-run]");
+    if (!linkedRun) return;
+    const key = linkedRun.dataset.linkedRun;
+    if (!(app.overview?.runs || []).some((run) => run.key === key)) {
+      showToast("Run no longer visible", "Refresh the dashboard and try again.", true);
+      return;
+    }
+    app.selectedKey = key;
+    app.detail = null;
+    renderRunList();
+    renderDetail();
+    await refreshDetail();
+    byId("run-detail").scrollIntoView({ behavior: "smooth", block: "start" });
   });
   document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((item) => item.classList.toggle("active", item === tab));

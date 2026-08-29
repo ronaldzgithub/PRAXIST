@@ -49,6 +49,18 @@ def register(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[ty
         help="Shared host/artifact sampling interval in seconds, minimum 1 (default: 1).",
     )
     parser.add_argument(
+        "--no-codex-tasks",
+        action="store_true",
+        help="Disable read-only discovery of Codex-hosted Praxist takeover and setup tasks.",
+    )
+    parser.add_argument(
+        "--codex-bin",
+        help=(
+            "Codex executable used for read-only task discovery. By default the active desktop "
+            "or system Codex is preferred before the SDK-pinned fallback."
+        ),
+    )
+    parser.add_argument(
         "--json",
         dest="as_json",
         action="store_true",
@@ -71,6 +83,8 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
             open_browser=not args.no_open,
             read_only=args.read_only,
             sample_interval_seconds=args.sample_interval,
+            codex_tasks_enabled=not args.no_codex_tasks,
+            codex_bin=args.codex_bin,
             as_json=args.as_json,
             verbose=args.verbose,
         )

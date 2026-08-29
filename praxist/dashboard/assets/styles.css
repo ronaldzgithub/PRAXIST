@@ -168,6 +168,41 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .warning-strip p { margin: 3px 0 0; color: #b7a77e; font-size: 10px; }
 .warning-strip button { border: 0; color: var(--muted); background: none; cursor: pointer; font-size: 18px; }
 
+.setup-panel { margin: 0 clamp(20px, 2.5vw, 48px) 16px; overflow: hidden; }
+.setup-heading-row { padding: 17px 18px 14px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); }
+.setup-heading-row h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.setup-heading-row > div > p:last-child { margin: 7px 0 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.setup-source { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.setup-health { padding: 5px 9px; text-transform: uppercase; }
+.setup-health.ready { border-color: rgba(98,243,187,.25); color: var(--mint); }
+.setup-health.degraded { border-color: rgba(244,200,109,.25); color: var(--amber); }
+.setup-health.unavailable { border-color: rgba(255,116,111,.24); color: var(--red); }
+.setup-health.sampling { color: var(--cyan); }
+.setup-task-list { padding: 11px; display: grid; grid-template-columns: repeat(auto-fit, minmax(245px, 1fr)); gap: 8px; }
+.setup-empty { grid-column: 1 / -1; padding: 20px; color: var(--muted); text-align: center; font-size: 10px; line-height: 1.5; }
+.setup-task-card { min-width: 0; padding: 13px; display: grid; gap: 7px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.018); }
+.setup-task-card.running, .setup-task-card.working { border-color: rgba(98,243,187,.2); background: linear-gradient(120deg, rgba(98,243,187,.06), rgba(255,255,255,.015)); }
+.setup-task-card.awaiting_approval { border-color: rgba(244,200,109,.26); }
+.setup-task-card.failed, .setup-task-card.interrupted { border-color: rgba(255,116,111,.22); }
+.setup-task-card header, .setup-task-card footer { display: flex; align-items: center; gap: 7px; }
+.setup-task-card header { justify-content: space-between; color: var(--muted-2); font-family: var(--mono); font-size: 7px; text-transform: uppercase; }
+.setup-stage { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.setup-stage i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted-2); }
+.running .setup-stage, .working .setup-stage { color: var(--mint); }
+.running .setup-stage i, .working .setup-stage i { background: var(--mint); box-shadow: 0 0 9px rgba(98,243,187,.5); }
+.awaiting_approval .setup-stage { color: var(--amber); }
+.awaiting_approval .setup-stage i { background: var(--amber); }
+.failed .setup-stage, .interrupted .setup-stage { color: var(--red); }
+.failed .setup-stage i, .interrupted .setup-stage i { background: var(--red); }
+.setup-task-card h3 { margin: 2px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 650; }
+.setup-task-card p { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.setup-task-name { color: #bcc9ca; font-size: 9px; }
+.setup-task-meta { color: var(--muted-2); font-family: var(--mono); font-size: 7px; }
+.setup-task-card footer { min-height: 25px; margin-top: 3px; flex-wrap: wrap; }
+.setup-task-card footer button { padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); background: rgba(255,255,255,.02); cursor: pointer; font-family: var(--mono); font-size: 7px; }
+.setup-task-card footer button:hover { border-color: rgba(98,243,187,.35); color: var(--text); }
+.setup-task-card footer .open-run { margin-left: auto; border-color: rgba(98,243,187,.22); color: var(--mint); }
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(270px, 330px) minmax(540px, 1fr) minmax(260px, 310px);
@@ -394,6 +429,9 @@ code { color: var(--mint); font-family: var(--mono); font-size: .92em; }
   .metric-card em { display: none; }
   .metric-icon { width: 28px; height: 28px; }
   .warning-strip { margin: 0 16px 12px; }
+  .setup-panel { margin: 0 16px 12px; }
+  .setup-heading-row { align-items: start; }
+  .setup-task-list { grid-template-columns: 1fr; }
   .workspace { padding: 0 16px 28px; }
   .detail-header { flex-direction: column; }
   .detail-actions { width: 100%; justify-content: start; }

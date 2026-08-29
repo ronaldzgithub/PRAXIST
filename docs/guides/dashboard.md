@@ -42,6 +42,19 @@ praxist dashboard --read-only
 `--no-open` prints the local URL without opening a browser. The live parser and
 generated [CLI Reference](../reference/cli.md) own the exact option contract.
 
+Codex takeover/setup discovery is enabled by default. Disable it, or select an
+explicit Codex executable, with:
+
+```bash
+praxist dashboard --no-codex-tasks
+praxist dashboard --codex-bin /absolute/path/to/codex
+```
+
+The default binary order is the Codex desktop application on macOS, `codex` on
+`PATH`, then Praxist's SDK-pinned Codex binary. The desktop/system preference is
+intentional: an older app-server may be unable to read history written by a
+newer Codex desktop release.
+
 ## What It Discovers
 
 The fleet list uses the same merged view as `praxist status`:
@@ -59,6 +72,41 @@ The fleet list uses the same merged view as `praxist status`:
 This means one dashboard can cover multiple task projects and runs started from
 different terminals or Codex sessions. It does not perform a broad filesystem
 scan for unregistered run directories.
+
+## Takeover and Setup Tasks
+
+The separate **Takeover & setup tasks** strip is a read-only view over recent
+Codex operator tasks and nearby external Praxist task projects. It uses the
+[official Codex app-server protocol](https://developers.openai.com/codex/app-server)
+to list recent task metadata and the newest persisted turn status. For each
+unique recent working directory, it performs a bounded search for `task.yaml`:
+at most three directory levels, with generated outputs, datasets, environments,
+dependencies, caches, hidden directories, and the Praxist source checkout
+excluded.
+
+Cards distinguish Codex work in progress, approval waits, interruptions, task
+projects ready to launch, and task projects correlated to a live canonical
+Praxist run. Correlation uses the normalized `task_path` from the run registry;
+it does not infer a running experiment from a Codex task alone.
+
+A separate app-server can read persisted turn checkpoints but does not own the
+desktop application's in-memory task runtime. Consequently, an active desktop
+turn may temporarily show its preceding persisted checkpoint until the new turn
+is stored. The card calls this a checkpoint, and a linked live Praxist registry
+row always takes precedence over that operator-work status.
+
+The available card actions are deliberately narrow:
+
+- copy the exact resolved `codex resume <thread-id>` command to continue the
+  original operator task, including the executable path when `codex` is not on
+  `PATH`;
+- copy the external task project path;
+- open the correlated run in the canonical fleet detail view.
+
+The dashboard does not start, interrupt, approve, or mutate a Codex task. Codex
+approval requests remain in the owning Codex task. Once takeover launches a
+detached run through `praxist start`, all ordinary Praxist controls appear in the
+fleet and remain available through the existing authenticated lifecycle API.
 
 ## Monitoring Views
 
@@ -91,6 +139,7 @@ The dashboard preserves the normal evidence hierarchy:
 | Committed `gems/gems_state.json` | Canonical Gems state |
 | Contiguous `gen_N/generation_boundary.json` files | Canonical completed-generation prefix |
 | Registry, process probe, orchestrator status, peer health, logs, and scheduler | Operational telemetry |
+| Codex app-server task metadata and persisted turn status | Operator-work telemetry, never proof of a live run |
 | Dashboard percentages, cards, and action feed | Derived operator presentation |
 
 If reported completed generations differ from contiguous boundary markers, the
@@ -139,6 +188,11 @@ through Praxist redaction before they reach the browser. HTTP request logging is
 off by default so task and run paths do not enter an extra access log. Use
 `--verbose` only when local HTTP debugging requires it.
 
+Codex conversation bodies are used neither as dashboard content nor as run
+evidence. The setup projection exposes only bounded thread metadata, status,
+external task identity, a copyable resume command, and canonical run
+correlation.
+
 The dashboard is not a remote operations service. Use the host's existing
 secure access layer and run it locally rather than forwarding it to an
 untrusted network.
@@ -164,6 +218,15 @@ Open the action feed and inspect the failed `doctor` or `resolve` step. Fix the
 task, runtime, saved login, configuration profile, or provider credential through
 the normal setup workflow, then submit a new launch. The dashboard never skips a
 failed preflight.
+
+### A Takeover Task Is Missing
+
+Wait for the background Codex sample (normally five seconds), then confirm that
+the task is recent and either mentions an operational Praxist takeover flow or
+has an external `task.yaml` within the bounded workspace search. If the source
+chip says **unavailable**, start with the current desktop/system Codex or pass
+its executable with `--codex-bin`. Use `--no-codex-tasks` when this projection
+is not wanted.
 
 ### Resume Is Unavailable
 

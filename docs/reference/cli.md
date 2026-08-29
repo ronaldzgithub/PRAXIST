@@ -74,7 +74,8 @@ Serve a loopback-only browser control room for every Praxist run known to this h
 
 ```text
 usage: praxist dashboard [-h] [--host HOST] [--port PORT] [--no-open] [--read-only]
-                         [--sample-interval SAMPLE_INTERVAL] [--json] [--verbose]
+                         [--sample-interval SAMPLE_INTERVAL] [--no-codex-tasks]
+                         [--codex-bin CODEX_BIN] [--json] [--verbose]
 ```
 
 | Argument | Required | Description |
@@ -85,6 +86,8 @@ usage: praxist dashboard [-h] [--host HOST] [--port PORT] [--no-open] [--read-on
 | `--no-open` | no | Do not open the dashboard in the default local browser. |
 | `--read-only` | no | Disable all lifecycle actions while retaining monitoring. |
 | `--sample-interval` | no | Shared host/artifact sampling interval in seconds, minimum 1 (default: 1). Default: `1.0`. |
+| `--no-codex-tasks` | no | Disable read-only discovery of Codex-hosted Praxist takeover and setup tasks. |
+| `--codex-bin` | no | Codex executable used for read-only task discovery. By default the active desktop or system Codex is preferred before the SDK-pinned fallback. |
 | `--json` | no | Emit one startup JSON document before serving instead of only the URL. |
 | `--verbose` | no | Write HTTP request logs to stderr (disabled by default to protect local paths). |
 
