@@ -258,34 +258,30 @@ class CodexTaskCollector:
         binary = ""
         version = ""
         warnings: list[str] = []
+        tasks: list[dict[str, Any]] = []
+        available = False
         try:
             binary = resolve_codex_operator_binary(self._codex_bin)
             version = codex_binary_version(binary)
             client = self._client_factory(binary)
             threads = client.list_threads(limit=MAX_CODEX_THREADS)
             tasks = _project_setup_tasks(threads, runs, client, warnings, codex_binary=binary)
-            return _redacted_payload(
-                tasks,
-                status="degraded" if warnings else "ready",
-                available=True,
-                binary_version=version,
-                warnings=warnings,
-            )
+            available = True
         except Exception as exc:
             warnings.append(redact_text(str(exc))[0])
-            return _redacted_payload(
-                [],
-                status="unavailable",
-                available=False,
-                binary_version=version,
-                warnings=warnings,
-            )
         finally:
             if client is not None:
                 try:
                     client.close()
                 except Exception as exc:
                     warnings.append(redact_text(str(exc))[0])
+        return _redacted_payload(
+            tasks,
+            status=("degraded" if warnings else "ready") if available else "unavailable",
+            available=available,
+            binary_version=version,
+            warnings=warnings,
+        )
 
 
 class CodexTaskCache:

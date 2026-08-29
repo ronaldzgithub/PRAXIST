@@ -262,6 +262,27 @@ class CodexTaskProjectionTest(unittest.TestCase):
         self.assertEqual(payload["source"]["status"], "unavailable")
         self.assertIn("<redacted:", payload["source"]["warnings"][0])
 
+        class ClosingClient(_FakeClient):
+            def close(self) -> None:
+                raise OSError("close failed")
+
+        client = ClosingClient([])
+        with (
+            patch(
+                "praxist.dashboard.codex_tasks.resolve_codex_operator_binary",
+                return_value="/mock/codex",
+            ),
+            patch(
+                "praxist.dashboard.codex_tasks.codex_binary_version",
+                return_value="codex-cli test",
+            ),
+        ):
+            payload = CodexTaskCollector(
+                client_factory=lambda _binary: client  # type: ignore[arg-type]
+            ).collect([])
+        self.assertEqual(payload["source"]["status"], "degraded")
+        self.assertIn("close failed", payload["source"]["warnings"])
+
     def test_helper_classification_fallbacks_and_task_metadata_are_bounded(self) -> None:
         from praxist.dashboard.codex_tasks import (
             _iso_from_epoch,
@@ -289,6 +310,9 @@ class CodexTaskProjectionTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            with patch.object(Path, "resolve", side_effect=OSError("bad path")):
+                self.assertEqual(_normalized_path(root), str(root))
+
             missing = root / "missing-task"
             manifest = _manifest_candidate(root, missing, [])
             self.assertIsNone(manifest["updated_at"])
@@ -318,6 +342,16 @@ class CodexTaskProjectionTest(unittest.TestCase):
             tasks = _project_setup_tasks([blank_thread], [], _FakeClient([]), [])
             self.assertEqual(tasks[0]["stage"], "awaiting_approval")
             self.assertFalse(tasks[0]["capabilities"]["can_copy_resume"])
+
+            invalid_cwd = {
+                "id": "missing-cwd",
+                "name": "Praxist takeover",
+                "cwd": str(root / "does-not-exist"),
+            }
+            self.assertEqual(
+                _project_setup_tasks([invalid_cwd], [], _FakeClient([]), []),
+                [],
+            )
 
     def test_projection_caps_many_setup_threads(self) -> None:
         from praxist.dashboard.codex_tasks import MAX_SETUP_TASKS, _project_setup_tasks
@@ -351,6 +385,12 @@ class CodexTaskProjectionTest(unittest.TestCase):
                 self.assertEqual(codex_tasks.discover_task_paths(root), [])
             with patch.object(Path, "resolve", side_effect=OSError("bad path")):
                 self.assertIsNone(codex_tasks._safe_directory(root))
+
+            nested = root
+            for index in range(codex_tasks.MAX_SCAN_DEPTH + 2):
+                nested = nested / f"level-{index}"
+                nested.mkdir()
+            self.assertEqual(codex_tasks.discover_task_paths(root), [])
 
     def test_cache_refreshes_off_request_path_and_recovers_injected_failure(self) -> None:
         from praxist.dashboard.codex_tasks import CodexTaskCache, CodexTaskSource
@@ -461,13 +501,22 @@ class CodexAppServerClientTest(unittest.TestCase):
         with self.assertRaises(TimeoutError):
             client._request("thread/list", {})
 
+        with (
+            patch.object(codex_tasks.time, "monotonic", side_effect=[0.0, 1.0]),
+            self.assertRaises(TimeoutError),
+        ):
+            client._request("thread/list", {})
+
+        with patch.object(client, "_request", return_value={"data": []}):
+            self.assertIsNone(client.latest_turn_status("missing"))
+
         client._responses.put(OSError("gone"))
         with self.assertRaises(OSError) as ended:
             client._request("thread/list", {})
         self.assertIn("gone", str(ended.exception))
 
         client._responses.put({"id": -1, "result": {}})
-        client._responses.put({"id": 3, "result": "not-an-object"})
+        client._responses.put({"id": client._next_id, "result": "not-an-object"})
         self.assertEqual(client._request("thread/list", {}), {})
 
         client._process.stdin = None
@@ -500,6 +549,15 @@ class CodexAppServerClientTest(unittest.TestCase):
         with patch.object(codex_tasks, "MAX_RPC_LINE_BYTES", 1):
             client._read_responses()
         self.assertIn("exceeded", str(client._responses.get_nowait()))
+
+        class BrokenOutput:
+            def __iter__(self) -> Any:
+                raise OSError("read failed")
+
+        client._process.stdout = BrokenOutput()
+        client._process.poll = lambda: None
+        client._read_responses()
+        self.assertIn("read failed", str(client._responses.get_nowait()))
 
     def test_close_escalates_when_app_server_does_not_terminate(self) -> None:
         from praxist.dashboard import codex_tasks
@@ -537,6 +595,11 @@ class CodexBinaryResolutionTest(unittest.TestCase):
                 self.assertEqual(codex_tasks.resolve_codex_operator_binary(), str(binary.resolve()))
             with (
                 patch.dict(os.environ, {}, clear=True),
+                patch.object(codex_tasks, "_DESKTOP_CODEX", binary),
+            ):
+                self.assertEqual(codex_tasks.resolve_codex_operator_binary(), str(binary))
+            with (
+                patch.dict(os.environ, {}, clear=True),
                 patch.object(codex_tasks, "_DESKTOP_CODEX", Path("/missing/codex")),
                 patch("praxist.dashboard.codex_tasks.shutil.which", return_value=str(binary)),
             ):
@@ -552,6 +615,11 @@ class CodexBinaryResolutionTest(unittest.TestCase):
             ):
                 self.assertEqual(codex_tasks.resolve_codex_operator_binary(), str(binary.resolve()))
             self.assertEqual(codex_tasks.codex_binary_version(str(binary)), "codex-cli test")
+            with patch(
+                "praxist.dashboard.codex_tasks.subprocess.run",
+                side_effect=subprocess.TimeoutExpired(cmd=str(binary), timeout=2.0),
+            ):
+                self.assertEqual(codex_tasks.codex_binary_version(str(binary)), "unknown")
             self.assertEqual(
                 codex_tasks._resume_command("thread-id", "/Applications/Codex App/codex"),
                 "'/Applications/Codex App/codex' resume thread-id",
