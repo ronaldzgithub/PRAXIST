@@ -12,11 +12,14 @@ import webbrowser
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, TextIO, cast
+from typing import TYPE_CHECKING, Any, TextIO, cast
 from urllib.parse import unquote, urlsplit
 
 from praxist.dashboard.actions import ActionManager, ActionRejected
-from praxist.dashboard.state import DashboardRunNotFound, DashboardStateCache
+from praxist.dashboard.codex_tasks import CodexTaskCache, CodexTaskCollector
+
+if TYPE_CHECKING:
+    from praxist.dashboard.state import DashboardStateCache
 
 MAX_REQUEST_BYTES = 64 * 1024
 ASSET_ROOT = Path(__file__).resolve().parent / "assets"
@@ -41,7 +44,11 @@ class DashboardApplication:
         read_only: bool = False,
         control_token: str | None = None,
     ) -> None:
-        self.state = state or DashboardStateCache()
+        if state is None:
+            from praxist.dashboard.state import DashboardStateCache
+
+            state = DashboardStateCache()
+        self.state = state
         self.actions = actions or ActionManager()
         self.read_only = read_only
         self.control_token = control_token or secrets.token_urlsafe(32)
@@ -66,6 +73,8 @@ class DashboardApplication:
                 raise DashboardHTTPError(HTTPStatus.NOT_FOUND, "action not found")
             return HTTPStatus.OK, action
         if path.startswith("/api/v1/runs/"):
+            from praxist.dashboard.state import DashboardRunNotFound
+
             run_key = unquote(path.removeprefix("/api/v1/runs/"))
             try:
                 return HTTPStatus.OK, self.state.detail(run_key)
@@ -350,6 +359,8 @@ def serve_dashboard(
     open_browser: bool = True,
     read_only: bool = False,
     sample_interval_seconds: float = 1.0,
+    codex_tasks_enabled: bool = True,
+    codex_bin: str | None = None,
     as_json: bool = False,
     verbose: bool = False,
     stdout: TextIO | None = None,
@@ -362,7 +373,17 @@ def serve_dashboard(
     """
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
-    state = DashboardStateCache(sample_interval_seconds=sample_interval_seconds)
+    from praxist.dashboard.state import DashboardStateCache, DashboardStateCollector
+
+    codex_tasks = (
+        CodexTaskCache(collector=CodexTaskCollector(codex_bin=codex_bin))
+        if codex_tasks_enabled
+        else None
+    )
+    state = DashboardStateCache(
+        collector=DashboardStateCollector(codex_tasks=codex_tasks),
+        sample_interval_seconds=sample_interval_seconds,
+    )
     server = create_dashboard_server(
         host=host,
         port=port,
@@ -379,6 +400,7 @@ def serve_dashboard(
                     "host": server.server_address[0],
                     "port": server.server_address[1],
                     "read_only": read_only,
+                    "codex_tasks": codex_tasks_enabled,
                     "pid": os_getpid(),
                 }
             )

@@ -16,6 +16,7 @@ from typing import Any, cast
 
 from praxist.cli import monitor, status
 from praxist.core.redaction import redact_json, redact_text
+from praxist.dashboard.codex_tasks import CodexTaskCache
 from praxist.plugins.workflow_stages.research_loop.backend.orchestrator_status import (
     read_effective_orchestrator_status,
 )
@@ -46,6 +47,9 @@ class DashboardSnapshot:
 class DashboardStateCollector:
     """Compose host-wide and run-detail views without mutating run artifacts."""
 
+    def __init__(self, *, codex_tasks: CodexTaskCache | None = None) -> None:
+        self._codex_tasks = codex_tasks
+
     def collect(self) -> DashboardSnapshot:
         """Collect one bounded registry, artifact, peer, and hardware sample."""
         errors: list[str] = []
@@ -57,6 +61,24 @@ class DashboardStateCollector:
         hardware = monitor.collect_hardware_snapshot(probe_timeout=1.0)
         run_views = [self._run_summary(row) for row in rows]
         counts = _run_counts(run_views)
+        setup = (
+            self._codex_tasks.overview(run_views)
+            if self._codex_tasks is not None
+            else {
+                "source": {
+                    "available": False,
+                    "status": "disabled",
+                    "protocol": "codex-app-server-jsonl",
+                    "binary_version": None,
+                    "degraded": False,
+                    "warnings": [],
+                },
+                "tasks": [],
+            }
+        )
+        raw_setup_tasks = setup.get("tasks") if isinstance(setup.get("tasks"), list) else []
+        setup_tasks = [task for task in raw_setup_tasks if isinstance(task, dict)]
+        counts.update(_setup_counts(setup_tasks))
         warnings = [*errors, *hardware.warnings]
         overview = {
             "schema_version": DASHBOARD_SCHEMA_VERSION,
@@ -72,6 +94,8 @@ class DashboardStateCollector:
             },
             "counts": counts,
             "runs": run_views,
+            "setup_tasks": setup_tasks,
+            "setup": setup.get("source", {}),
             "warnings": _redacted_strings(warnings),
             "authority": {
                 "metrics": "result and finding summaries",
@@ -79,6 +103,7 @@ class DashboardStateCollector:
                 "gems": "gems/gems_state.json",
                 "boundaries": "gen_N/generation_boundary.json",
                 "operational": "registry, process probe, and orchestrator status",
+                "setup": "Codex app-server persisted task metadata and external task manifests",
             },
         }
         return DashboardSnapshot(
@@ -497,6 +522,18 @@ def _run_counts(runs: list[dict[str, Any]]) -> dict[str, int]:
         "attention": attention,
         "findings": findings,
         "committed_generations": committed,
+    }
+
+
+def _setup_counts(tasks: list[dict[str, Any]]) -> dict[str, int]:
+    active = sum(1 for task in tasks if task.get("stage") in {"running", "working"})
+    attention = sum(
+        1 for task in tasks if task.get("stage") in {"awaiting_approval", "failed", "interrupted"}
+    )
+    return {
+        "setup_total": len(tasks),
+        "setup_active": active,
+        "setup_attention": attention,
     }
 
 

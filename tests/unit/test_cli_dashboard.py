@@ -895,13 +895,16 @@ class DashboardServerTest(unittest.TestCase):
         handler._serve_index(head_only=False)
         body = handler.wfile.getvalue().decode()
         self.assertIn("Praxist Local Command", body)
+        self.assertIn("Takeover &amp; setup tasks", body)
         self.assertIn("control-token", body)
         self.assertNotIn("__PRAXIST_CONTROL_TOKEN__", body)
         self.assertIn(("X-Frame-Options", "DENY"), handler.headers_seen)
 
         asset = self._handler()
         asset._serve_asset("/assets/app.js", head_only=False)
-        self.assertIn("application/json", asset.wfile.getvalue().decode())
+        app_script = asset.wfile.getvalue().decode()
+        self.assertIn("application/json", app_script)
+        self.assertIn("data-copy-resume", app_script)
         with self.assertRaises(DashboardHTTPError) as missing:
             asset._serve_asset("/assets/missing.js", head_only=False)
         self.assertEqual(missing.exception.status, 404)
@@ -1155,6 +1158,9 @@ class DashboardCliTest(unittest.TestCase):
                     "--read-only",
                     "--sample-interval",
                     "2",
+                    "--no-codex-tasks",
+                    "--codex-bin",
+                    "/opt/codex",
                     "--json",
                 ]
             )
@@ -1163,6 +1169,8 @@ class DashboardCliTest(unittest.TestCase):
         self.assertFalse(serve.call_args.kwargs["open_browser"])
         self.assertTrue(serve.call_args.kwargs["read_only"])
         self.assertEqual(serve.call_args.kwargs["sample_interval_seconds"], 2.0)
+        self.assertFalse(serve.call_args.kwargs["codex_tasks_enabled"])
+        self.assertEqual(serve.call_args.kwargs["codex_bin"], "/opt/codex")
 
     def test_cli_reports_bind_errors_and_argument_types(self) -> None:
         with patch(
@@ -1214,6 +1222,7 @@ class DashboardCliTest(unittest.TestCase):
         self.assertEqual(result, 0)
         payload = json.loads(stdout.getvalue())
         self.assertEqual(payload["url"], "http://127.0.0.1:9999/")
+        self.assertTrue(payload["codex_tasks"])
         self.assertNotIn("token", stdout.getvalue().lower())
         self.assertIn("research runs were not changed", stderr.getvalue())
         self.assertTrue(fake.closed)
