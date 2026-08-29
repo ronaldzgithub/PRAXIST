@@ -84,6 +84,23 @@
         <button id="warning-dismiss" type="button" aria-label="Dismiss warning">×</button>
       </section>
 
+      <section class="panel setup-panel" aria-labelledby="setup-heading">
+        <div class="setup-heading-row">
+          <div>
+            <p class="eyebrow">CODEX OPERATOR WORK</p>
+            <h2 id="setup-heading">Takeover &amp; setup tasks</h2>
+            <p>Recent Codex checkpoints and nearby external <code>task.yaml</code> projects; canonical run state wins.</p>
+          </div>
+          <div class="setup-source">
+            <span id="setup-source-status" class="health-chip">sampling</span>
+            <span id="setup-count-badge" class="count-badge">0</span>
+          </div>
+        </div>
+        <div id="setup-task-list" class="setup-task-list" aria-live="polite">
+          <div class="setup-empty">Sampling Codex task history…</div>
+        </div>
+      </section>
+
       <main class="workspace">
         <aside class="panel run-browser" aria-label="Known runs">
           <div class="panel-heading">
