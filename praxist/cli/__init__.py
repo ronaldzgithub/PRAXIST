@@ -28,6 +28,7 @@ from collections.abc import Callable, Sequence
 
 from praxist import __version__
 from praxist.cli import configure_llm as _configure_llm_module
+from praxist.cli import dashboard as _dashboard_module
 from praxist.cli import docs as _docs_module
 from praxist.cli import doctor as _doctor_module
 from praxist.cli import examples as _examples_module
@@ -56,7 +57,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "Praxist — multi-agent autonomous research system.\n\n"
             "Designed for both human operators and AI research agents.\n"
             "Data goes to stdout; decorations and hints go to stderr.\n\n"
-            "Live dashboard: praxist --monitor [--run-id RUN_ID | --latest]"
+            "Browser control room: praxist dashboard\n"
+            "Terminal monitor: praxist --monitor [--run-id RUN_ID | --latest]"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -67,6 +69,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
     _configure_llm_module.register(subparsers)
+    _dashboard_module.register(subparsers)
     _docs_module.register(subparsers)
     _doctor_module.register(subparsers)
     _examples_module.register(subparsers)

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="praxist-control-token" content="__PRAXIST_CONTROL_TOKEN__">
+    <meta name="praxist-read-only" content="__PRAXIST_READ_ONLY__">
+    <title>Praxist Local Command</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+    <script src="/assets/app.js" defer></script>
+  </head>
+  <body>
+    <div class="ambient ambient-a"></div>
+    <div class="ambient ambient-b"></div>
+    <div class="shell">
+      <header class="topbar">
+        <a class="brand" href="#overview" aria-label="Praxist dashboard overview">
+          <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
+            <path d="M7 9h13l7 7-8 8 8 8-7 7H7l15-15L7 9Z"></path>
+            <path class="brand-mark-accent" d="M29 9h12v30H29l8-8V17l-8-8Z"></path>
+          </svg>
+          <span class="brand-copy">
+            <strong>PRAXIST</strong>
+            <small>LOCAL COMMAND</small>
+          </span>
+        </a>
+
+        <div class="connection" aria-live="polite">
+          <span id="connection-dot" class="pulse-dot pending"></span>
+          <span>
+            <strong id="connection-label">Connecting</strong>
+            <small id="last-sync">Waiting for first sample</small>
+          </span>
+        </div>
+
+        <div class="top-actions">
+          <button id="refresh-button" class="icon-button" type="button" title="Refresh now" aria-label="Refresh now">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"></path></svg>
+          </button>
+          <button id="cleanup-button" class="button ghost control-only" type="button">Registry GC</button>
+          <button id="stop-all-button" class="button danger ghost control-only" type="button">Stop all</button>
+          <button id="launch-button" class="button primary control-only" type="button">
+            <span class="button-plus">+</span> New run
+          </button>
+        </div>
+      </header>
+
+      <section class="hero" aria-labelledby="dashboard-heading">
+        <div>
+          <p class="eyebrow">HOST-WIDE RESEARCH OPERATIONS</p>
+          <h1 id="dashboard-heading">Every run. One control plane.</h1>
+          <p id="host-line" class="hero-subtitle">Discovering this Praxist environment…</p>
+        </div>
+        <div id="mode-pill" class="mode-pill"><span></span> Control enabled</div>
+      </section>
+
+      <section id="summary-grid" class="summary-grid" aria-label="Host summary">
+        <article class="metric-card active-card">
+          <span class="metric-icon live"><i></i></span>
+          <div><small>ACTIVE RUNS</small><strong id="metric-active">—</strong></div>
+          <em id="metric-total">— known</em>
+        </article>
+        <article class="metric-card">
+          <span class="metric-icon generations">G</span>
+          <div><small>COMMITTED GENS</small><strong id="metric-generations">—</strong></div>
+          <em>canonical boundaries</em>
+        </article>
+        <article class="metric-card">
+          <span class="metric-icon findings">F</span>
+          <div><small>FINDINGS</small><strong id="metric-findings">—</strong></div>
+          <em>reported across runs</em>
+        </article>
+        <article class="metric-card attention-card">
+          <span class="metric-icon attention">!</span>
+          <div><small>NEEDS ATTENTION</small><strong id="metric-attention">—</strong></div>
+          <em>probe or boundary warnings</em>
+        </article>
+      </section>
+
+      <section id="warning-strip" class="warning-strip hidden" aria-live="polite">
+        <span class="warning-symbol">!</span>
+        <div><strong>Environment warning</strong><p id="warning-text"></p></div>
+        <button id="warning-dismiss" type="button" aria-label="Dismiss warning">×</button>
+      </section>
+
+      <main class="workspace">
+        <aside class="panel run-browser" aria-label="Known runs">
+          <div class="panel-heading">
+            <div><p class="eyebrow">FLEET</p><h2>Known runs</h2></div>
+            <span id="run-count-badge" class="count-badge">0</span>
+          </div>
+          <label class="search-box">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+            <input id="run-search" type="search" placeholder="Search task, run, model…" autocomplete="off">
+          </label>
+          <div class="filter-row" role="group" aria-label="Filter runs">
+            <button type="button" class="filter active" data-filter="all">All</button>
+            <button type="button" class="filter" data-filter="active">Active</button>
+            <button type="button" class="filter" data-filter="attention">Attention</button>
+            <button type="button" class="filter" data-filter="offline">Offline</button>
+          </div>
+          <div id="run-list" class="run-list" aria-live="polite"></div>
+        </aside>
+
+        <section id="run-detail" class="panel detail-panel" aria-live="polite">
+          <div id="empty-detail" class="empty-state">
+            <div class="empty-orbit"><span></span><i></i></div>
+            <h2>Select a run</h2>
+            <p>Choose any registered, process-only, remote, or stale run to inspect its canonical progress.</p>
+          </div>
+          <div id="detail-content" class="hidden">
+            <div class="detail-header">
+              <div>
+                <div class="detail-kicker"><span id="detail-state-dot" class="state-dot"></span><span id="detail-state">—</span><span id="detail-source" class="source-chip">—</span></div>
+                <h2 id="detail-title">—</h2>
+                <button id="detail-path" class="copy-path" type="button" title="Copy run directory">—</button>
+              </div>
+              <div class="detail-actions">
+                <button id="copy-monitor-button" class="button ghost" type="button">Copy monitor command</button>
+                <button id="resume-button" class="button primary control-only" type="button">Resume</button>
+                <button id="stop-button" class="button danger control-only" type="button">Stop run</button>
+              </div>
+            </div>
+
+            <div id="detail-warning" class="inline-warning hidden"></div>
+
+            <div class="progress-section">
+              <div class="progress-copy">
+                <div><small>GENERATION PROGRESS</small><strong id="detail-generation">—</strong></div>
+                <span id="detail-phase" class="phase-chip">—</span>
+              </div>
+              <div class="progress-track"><span id="progress-fill"></span></div>
+              <div class="boundary-row">
+                <span id="boundary-stop"><i></i>Stop signal</span>
+                <span id="boundary-results"><i></i>Results</span>
+                <span id="boundary-commit"><i></i>Boundary</span>
+                <em id="boundary-count">— committed</em>
+              </div>
+            </div>
+
+            <div id="detail-metrics" class="detail-metrics"></div>
+
+            <div class="tab-bar" role="tablist" aria-label="Run information">
+              <button class="tab active" type="button" role="tab" data-tab="peers">Peers</button>
+              <button class="tab" type="button" role="tab" data-tab="evidence">Frontier & Gems</button>
+              <button class="tab" type="button" role="tab" data-tab="scheduler">Scheduler</button>
+              <button class="tab" type="button" role="tab" data-tab="logs">Live logs</button>
+              <button class="tab" type="button" role="tab" data-tab="artifacts">Artifacts</button>
+            </div>
+            <div id="tab-peers" class="tab-panel active" role="tabpanel"></div>
+            <div id="tab-evidence" class="tab-panel" role="tabpanel"></div>
+            <div id="tab-scheduler" class="tab-panel" role="tabpanel"></div>
+            <div id="tab-logs" class="tab-panel" role="tabpanel"></div>
+            <div id="tab-artifacts" class="tab-panel" role="tabpanel"></div>
+          </div>
+        </section>
+
+        <aside class="right-rail">
+          <section class="panel host-panel">
+            <div class="panel-heading compact">
+              <div><p class="eyebrow">HOST</p><h2>Resources</h2></div>
+              <span id="host-status" class="health-chip">sampling</span>
+            </div>
+            <div class="resource-block">
+              <div class="resource-label"><span>Load average</span><strong id="host-load">—</strong></div>
+              <div id="load-bars" class="mini-bars"><i></i><i></i><i></i></div>
+            </div>
+            <div class="resource-block">
+              <div class="resource-label"><span>Memory</span><strong id="host-memory">—</strong></div>
+            </div>
+            <div id="gpu-list" class="gpu-list"></div>
+          </section>
+
+          <section class="panel action-panel">
+            <div class="panel-heading compact">
+              <div><p class="eyebrow">CONTROL</p><h2>Action feed</h2></div>
+              <span id="action-running" class="count-badge">0</span>
+            </div>
+            <div id="action-list" class="action-list"></div>
+          </section>
+
+          <section class="authority-card">
+            <span>CANONICAL STATE</span>
+            <p>Metrics, frontier, Gems, and generation boundaries remain authoritative. This dashboard is an operator projection.</p>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <dialog id="launch-dialog" class="modal large-modal">
+      <form id="launch-form" method="dialog">
+        <div class="modal-header">
+          <div><p class="eyebrow">NEW RESEARCH RUN</p><h2>Launch with preflight</h2></div>
+          <button class="dialog-close" type="button" data-close-dialog="launch-dialog">×</button>
+        </div>
+        <p class="modal-intro">The dashboard runs doctor and resolve first, then launches through <code>praxist start --daemonize</code>.</p>
+        <div class="form-grid">
+          <label class="full-field"><span>Task project path <b>*</b></span><input name="task_path" required placeholder="/absolute/path/to/task"></label>
+          <label><span>Agent system</span><select name="agent_system"><option value="">Configured default</option><option value="codex_sdk">Codex SDK</option><option value="claude_sdk">Claude SDK</option></select></label>
+          <label class="switch-field"><input name="codex_native" type="checkbox"><span><i></i>Codex native saved login</span></label>
+          <label><span>Runtime plugin</span><input name="runtime" placeholder="agent_runtime:codex_sdk"></label>
+          <label><span>Model provider</span><input name="model_provider" placeholder="model_provider:openai_compatible"></label>
+          <label><span>Model</span><input name="model" placeholder="Configured default"></label>
+          <label><span>Strategy</span><select name="strategy"><option value="auto">Auto</option><option value="mixed">Mixed</option><option value="explore">Explore</option><option value="exploit">Exploit</option></select></label>
+          <label><span>Cohort override</span><input name="cohort" type="number" min="1" placeholder="Task default"></label>
+          <label><span>Generation limit</span><input name="generations" type="number" min="1" placeholder="Task default"></label>
+          <label><span>Startup timeout</span><input name="startup_timeout" type="number" min="0" max="600" value="30"></label>
+          <label class="full-field"><span>Configuration file</span><input name="config_file" placeholder="User default"></label>
+          <details class="full-field advanced-fields">
+            <summary>Advanced paths</summary>
+            <label><span>Explicit run directory</span><input name="run_dir" placeholder="Task-local experiments default"></label>
+            <label class="switch-field"><input name="server" type="checkbox"><span><i></i>Server mode</span></label>
+          </details>
+        </div>
+        <div class="modal-footer">
+          <span id="launch-note">No provider secrets are displayed or stored by the dashboard.</span>
+          <div><button class="button ghost" type="button" id="validate-button">Resolve task only</button><button class="button primary" type="submit">Run preflight & launch</button></div>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="confirm-dialog" class="modal">
+      <form id="confirm-form" method="dialog">
+        <div class="modal-header">
+          <div><p id="confirm-eyebrow" class="eyebrow">LIFECYCLE ACTION</p><h2 id="confirm-title">Confirm action</h2></div>
+          <button class="dialog-close" type="button" data-close-dialog="confirm-dialog">×</button>
+        </div>
+        <p id="confirm-message" class="modal-intro"></p>
+        <label class="confirmation-field"><span>Type <code id="confirm-phrase"></code> to continue</span><input id="confirm-input" autocomplete="off"></label>
+        <div class="modal-footer"><span id="confirm-note"></span><div><button class="button ghost" type="button" data-close-dialog="confirm-dialog">Cancel</button><button id="confirm-submit" class="button danger" type="submit">Confirm</button></div></div>
+      </form>
+    </dialog>
+
+    <div id="toast-region" class="toast-region" aria-live="polite"></div>
+  </body>
+</html>

@@ -104,6 +104,7 @@ nav:
       - Examples And Templates: guides/examples-and-templates.md
       - Rocket Booster Recovery: examples/rocket-booster-recovery.md
       - Rocket Booster Recovery (Rust): examples/rocket-booster-recovery-rust.md
+      - Local Dashboard: guides/dashboard.md
       - Direct CLI Operations: guides/operators.md
       - Run Reports: guides/user-facing-reports-and-init.md
       - Cost Estimation: guides/costs.md

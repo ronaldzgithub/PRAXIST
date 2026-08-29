@@ -113,13 +113,14 @@ Praxist does not invent missing data, simulators, credentials, or measurements.
 
     [Your first task](getting-started/first-task.md)
 
--   :material-console: **Operate from the shell**
+-   :material-view-dashboard-outline: **Operate every local run**
 
     ---
 
-    Use the direct CLI for lifecycle and monitoring operations.
+    Use the browser dashboard for host-wide monitoring and control, or the CLI
+    for scripts and targeted operations.
 
-    [Direct CLI operations](guides/operators.md)
+    [Local dashboard](guides/dashboard.md) · [Direct CLI operations](guides/operators.md)
 
 </div>
 

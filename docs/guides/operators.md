@@ -38,6 +38,7 @@ flowchart LR
 | Check host and runtime readiness | `praxist doctor --task-path <task>` |
 | Validate a task without starting | `praxist resolve <task>` |
 | Start a detached run | `praxist start --task-path <task> --daemonize --json` |
+| Open the local browser control room | `praxist dashboard` |
 | List or inspect runs | `praxist status --json` |
 | Inspect one run | `praxist status --run-id <run-id> --json` |
 | Open the read-only TUI | `praxist --monitor --run-id <run-id>` |
@@ -144,6 +145,23 @@ The saved-login route is isolated from configured relay API providers and API-ke
 endpoints. Use `praxist-takeover-codex` for the guided equivalent.
 
 ## Observe a Run
+
+### Browser Dashboard
+
+```bash
+praxist dashboard
+```
+
+The loopback-only browser dashboard discovers all host-visible registry and
+process rows, shares a bounded status sampler across browser clients, and adds
+safe doctor, resolve, start, stop, resume, stop-all, and stale-registry cleanup
+actions. Control requests still execute through the canonical CLI lifecycle
+paths and identity checks. See [Local Dashboard](dashboard.md) for its authority,
+security, confirmation, and recovery boundaries.
+
+Use `praxist dashboard --read-only` when the browser session should only monitor.
+Stopping the foreground dashboard or closing its tab does not stop a research
+run.
 
 ### Status
 
