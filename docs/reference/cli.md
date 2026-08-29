@@ -22,6 +22,7 @@ usage: praxist [-h] [--version] <command> ...
 | Command | Purpose |
 |---|---|
 | [`praxist configure-llm`](#praxist-configure-llm) | Persist a built-in Praxist LLM provider profile. |
+| [`praxist dashboard`](#praxist-dashboard) | Open the local browser dashboard for monitoring and lifecycle control. |
 | [`praxist docs`](#praxist-docs) | Open or print the hosted Praxist documentation. |
 | [`praxist doctor`](#praxist-doctor) | Check Praxist host readiness. |
 | [`praxist examples`](#praxist-examples) | List or install complete writable example projects. |
@@ -45,8 +46,8 @@ Persist a built-in Praxist LLM provider profile.
 
 ```text
 usage: praxist configure-llm [-h] --provider PROVIDER [--model MODEL]
-                             [--agent-system {claude_sdk,codex_sdk}]
-                             [--api-key-stdin | --api-key-env API_KEY_ENV | --no-api-key | --remove-api-key]
+                             [--agent-system {claude_sdk,codex_sdk}] [--api-key-stdin |
+                             --api-key-env API_KEY_ENV | --no-api-key | --remove-api-key]
                              [--config-file CONFIG_FILE] [--project-env-file PROJECT_ENV_FILE]
                              [--print-source-command] [--json] [--dry-run]
 ```
@@ -66,6 +67,26 @@ usage: praxist configure-llm [-h] --provider PROVIDER [--model MODEL]
 | `--print-source-command` | no | Print the shell command that loads the selected config file. |
 | `--json` | no | Emit the result as JSON. |
 | `--dry-run` | no | Validate and report changes without writing files. |
+
+## `praxist dashboard`
+
+Serve a loopback-only browser control room for every Praxist run known to this host. The dashboard shares the status sampler and invokes only the canonical doctor, resolve, start, stop, resume, and registry-cleanup CLI paths.
+
+```text
+usage: praxist dashboard [-h] [--host HOST] [--port PORT] [--no-open] [--read-only]
+                         [--sample-interval SAMPLE_INTERVAL] [--json] [--verbose]
+```
+
+| Argument | Required | Description |
+|---|---:|---|
+| `-h`, `--help` | no | show this help message and exit |
+| `--host` | no | Loopback address to bind (default: 127.0.0.1; non-loopback hosts are rejected). Default: `127.0.0.1`. |
+| `--port` | no | TCP port to bind, or 0 for an ephemeral port (default: 8765). Default: `8765`. |
+| `--no-open` | no | Do not open the dashboard in the default local browser. |
+| `--read-only` | no | Disable all lifecycle actions while retaining monitoring. |
+| `--sample-interval` | no | Shared host/artifact sampling interval in seconds, minimum 1 (default: 1). Default: `1.0`. |
+| `--json` | no | Emit one startup JSON document before serving instead of only the URL. |
+| `--verbose` | no | Write HTTP request logs to stderr (disabled by default to protect local paths). |
 
 ## `praxist docs`
 

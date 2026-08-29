@@ -141,13 +141,16 @@ single source of truth for what should be tested and what counts as valid eviden
 ## Operate A Run
 
 ```bash
+praxist dashboard
 praxist status --json
 praxist --monitor --latest
 praxist stop <run_id>
 praxist resume <run_dir>
 ```
 
-`Ctrl-C` closes only the monitor; it does not stop the research run.
+`praxist dashboard` opens the loopback-only browser control room for every
+host-visible run. `Ctrl-C` closes only the dashboard or terminal monitor; it does
+not stop a research run.
 
 ## Examples And Templates
 

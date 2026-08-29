@@ -504,7 +504,7 @@ def cmd_peer(args):
 def cmd_server(args):
     """Start the orchestrator Flask server."""
     print("Server mode is not yet implemented in the Praxist package.")
-    print("A web dashboard can be added as a future workflow-stage operator surface.")
+    print("Use `praxist dashboard` for the local monitoring and lifecycle control room.")
     sys.exit(1)
 
 
