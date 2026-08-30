@@ -1,0 +1,34 @@
+schema_version: 1
+name: foundry_compute
+kind: agent_runtime
+version: 0.1.0
+protocol_version: 1
+stability: v1_stable
+description: Remote Codex peer runtime over the outbound-only Foundry compute network.
+compatibility:
+  praxist_core: ">=0.1.0,<1.0"
+  python: ">=3.11"
+dependencies: []
+capabilities:
+  - runtime.foundry_compute
+  - runtime.agent_run_request
+  - runtime.remote_codex
+  - runtime.managed_credentials
+  - runtime.workspace_roundtrip
+  - runtime.usage_or_usage_unknown
+runtime:
+  execution_modes:
+    - remote_agent_run_request
+  compatible_model_providers:
+    - model_provider:openai_compatible
+  cache_strategy: remote_runtime_managed
+  event_schema: praxist.agent_event.v1
+  usage_reporting: usage_or_usage_unknown
+  central_inprocess_tools: omitted_with_warning
+entrypoint: adapter:create_runtime
+code:
+  - adapter.py
+  - transport.py
+  - worker.py
+  - workspace.py
+assets: []

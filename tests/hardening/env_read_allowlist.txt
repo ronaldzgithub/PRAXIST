@@ -66,6 +66,12 @@ praxist/plugins/agent_runtimes/claude_sdk/delete_guard.py::PYTHONPATH
 praxist/plugins/agent_runtimes/codex_sdk/_auth.py::PRAXIST_CODEX_BIN
 praxist/plugins/agent_runtimes/codex_sdk/_relay.py::<dynamic>
 praxist/plugins/agent_runtimes/codex_sdk/adapter.py::<dynamic>
+# foundry_compute: the central AgentRuntime adapter reads coordinator routing,
+# bounded timeout, matching labels/platforms, and capsule reference at its
+# remote-submission boundary. The dynamic entry owns the named helper reads.
+praxist/plugins/agent_runtimes/foundry_compute/adapter.py::<dynamic>
+praxist/plugins/agent_runtimes/foundry_compute/adapter.py::PRAXIST_FOUNDRY_COMPUTE_RUNTIME_CAPSULE
+praxist/plugins/agent_runtimes/foundry_compute/adapter.py::PRAXIST_FOUNDRY_COMPUTE_TIMEOUT_SECONDS
 # BRAVE_API_KEY is the search-provider credential read at the
 # legitimate boundary read for the search-provider adapter.
 praxist/plugins/tools/brave_search/adapter.py::BRAVE_API_KEY

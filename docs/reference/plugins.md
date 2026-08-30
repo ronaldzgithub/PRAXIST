@@ -8,6 +8,8 @@ This page documents executable generic plugin boundaries.
 
 ::: praxist.plugins.agent_runtimes.codex_sdk.adapter
 
+::: praxist.plugins.agent_runtimes.foundry_compute.adapter
+
 ## API Providers
 
 ::: praxist.plugins.model_providers.openrouter.adapter

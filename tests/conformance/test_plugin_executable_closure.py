@@ -63,7 +63,12 @@ class PluginExecutableClosureTest(unittest.TestCase):
     def test_runtime_plugins_have_executable_entrypoints(self) -> None:
         loader = PluginLoader(PluginRoots.defaults(Path.cwd()))
         manifest = loader.resolve(
-            ["agent_runtime:fake_runtime", "agent_runtime:claude_sdk", "agent_runtime:codex_sdk"],
+            [
+                "agent_runtime:fake_runtime",
+                "agent_runtime:claude_sdk",
+                "agent_runtime:codex_sdk",
+                "agent_runtime:foundry_compute",
+            ],
             run_id="run_plugin_executable_closure",
             root_task_ref="test:runtime_closure",
             enforce_bundled_execution=True,
@@ -76,6 +81,7 @@ class PluginExecutableClosureTest(unittest.TestCase):
             "agent_runtime:fake_runtime",
             "agent_runtime:claude_sdk",
             "agent_runtime:codex_sdk",
+            "agent_runtime:foundry_compute",
         ):
             metadata = selected[runtime_ref]["metadata"]
             self.assertEqual(metadata["entrypoint"], "adapter:create_runtime")

@@ -27,10 +27,47 @@ or unknown usage explicitly rather than pretending the capability exists.
   for new task projects, tested with `claude-agent-sdk==0.2.136`.
 - `agent_runtime:codex_sdk` is an explicitly selected production runtime built
   on the official `openai-codex==0.147.0` Python SDK.
+- `agent_runtime:foundry_compute` sends one normalized peer request to an
+  enrolled Foundry Node Agent, which runs the same pinned Codex SDK with the
+  node owner's saved ChatGPT login.
 - `agent_runtime:fake_runtime` is the deterministic offline runtime used by
   conformance tests.
 
 Selecting `codex_sdk` does not change the default runtime for existing tasks.
+
+## Foundry Compute Runtime
+
+`agent_runtime:foundry_compute` is an explicit remote execution option. The
+Praxist process remains the owner of generation closure, budgets, findings,
+frontier/incubator/Gems state, ranking, replay, and run artifacts. The remote
+node receives one frozen `AgentRunRequest` and a secret-scanned workspace
+snapshot, then returns a normalized `AgentRunResult` and workspace result. The
+central adapter merges files only when the original workspace has not changed
+during the remote turn; a concurrent change fails the merge instead of
+overwriting central work.
+
+The transport requires a Foundry coordinator and an enrolled node advertising
+`praxist.codex_peer`. Configure the central Praxist process with:
+
+```bash
+export PRAXIST_FOUNDRY_COMPUTE_URL=https://compute.example.test
+export PRAXIST_FOUNDRY_COMPUTE_ADMIN_TOKEN=... # infrastructure secret
+praxist start --task-path /path/to/task --runtime agent_runtime:foundry_compute
+```
+
+The token is read only by the adapter and is not copied into a request,
+workspace, trajectory, or node artifact. Plain HTTP is accepted only for a
+loopback development coordinator. A runtime capsule reference may be supplied
+through `PRAXIST_FOUNDRY_COMPUTE_RUNTIME_CAPSULE`; without it the selected node
+must have an administrator-configured local Praxist runtime. Node-local Codex
+authentication never leaves the node.
+
+The v1 boundary deliberately omits tool servers that require direct access to
+the central writable `run_dir`. A normalized `runtime_warning` lists those
+servers. Other bundled stdio tool descriptors can be rebuilt inside the node
+capsule. This prevents a rented worker from mutating canonical research state,
+but means the remote runtime is not behaviorally identical to a local peer for
+roles that require central in-process tools.
 
 ## Claude SDK Liveness
 
@@ -104,18 +141,18 @@ Stop, closing, resource-supply, timeout, and recovery semantics are unchanged.
 
 ## Capability Alignment And Differences
 
-Both production adapters target the same Praxist request/result contract, but
+The production adapters target the same Praxist request/result contract, but
 they are not interchangeable implementations:
 
-| Capability | `claude_sdk` | `codex_sdk` |
-| --- | --- | --- |
-| Selected Praxist MCP tools | Direct SDK MCP integration | Direct app-server stdio MCP integration |
-| Streaming | Normalized from Claude SDK messages | Normalized from typed app-server notifications |
-| Timeout and stop | Runtime-specific cancellation path | Turn interrupt plus bounded notification drain |
-| Usage | Recorded when the SDK/API provider exposes it; otherwise unknown | Token-usage notifications when present; otherwise unknown |
-| Sandbox intent | Claude SDK permission/sandbox integration | Codex read-only/workspace/full mapping; built-in shell remains part of the runtime |
-| Long-run concurrency | Independent concurrent peer sessions | Independent threads over shared long-lived clients with bounded stream concurrency |
-| Non-native API providers | Claude SDK/API provider compatibility path | Responses-to-Chat relay for supported Chat Completions API providers |
+| Capability | `claude_sdk` | `codex_sdk` | `foundry_compute` |
+| --- | --- | --- | --- |
+| Selected Praxist MCP tools | Direct SDK MCP integration | Direct app-server stdio MCP integration | Remote-safe stdio subset; central-state tools omitted with warning |
+| Streaming | Normalized from Claude SDK messages | Normalized from typed app-server notifications | Normalized result events replayed after the remote receipt |
+| Timeout and stop | Runtime-specific cancellation path | Turn interrupt plus bounded notification drain | Foundry cancellation plus node process-group termination |
+| Usage | Recorded when exposed; otherwise unknown | Token-usage notifications when present; otherwise unknown | Node result usage when present; otherwise unknown |
+| Sandbox intent | Claude SDK permission/sandbox integration | Codex read-only/workspace/full mapping | Node isolation plus the local Codex sandbox; capsule/OS strength is node policy |
+| Long-run concurrency | Independent concurrent peer sessions | Shared long-lived clients with bounded stream concurrency | Coordinator leases across independent nodes |
+| API providers | Declared Claude-compatible paths | Native OpenAI plus supported relays | Native OpenAI with node-local saved ChatGPT login only |
 
 Do not claim complete behavioral equivalence. Tool naming, event granularity,
 sandbox capabilities, cache behavior, API provider errors, and usage availability
