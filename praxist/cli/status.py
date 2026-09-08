@@ -696,14 +696,15 @@ def _resolved_executable_path(value: str) -> Path:
 
 
 def _pid_is_alive(pid: int) -> bool:
-    """Cross-platform liveness check via ``kill -0``.
+    """Check liveness without sending a signal on Windows.
 
-    Returns False when the PID does not exist; True when it exists and
-    we have permission to signal it; True (conservative) when the PID
-    exists but EPERM blocks us — the caller decides what that means.
+    A True result means alive or inconclusive; callers must still verify
+    the registered process identity before authorizing a lifecycle action.
     """
     if pid <= 0:
         return False
+    if sys.platform == "win32":
+        return _windows_pid_is_alive(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -713,6 +714,36 @@ def _pid_is_alive(pid: int) -> bool:
     except OSError:
         return False
     return True
+
+
+def _windows_pid_is_alive(pid: int) -> bool:
+    """Query a retained process handle; inconclusive probes may still be alive."""
+    import ctypes
+    from ctypes import wintypes
+
+    # Avoid wrapping a foreign PID through the Win32 DWORD argument.
+    if pid > 0xFFFFFFFF:
+        return False
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    kernel32.WaitForSingleObject.restype = wintypes.DWORD
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel32.CloseHandle.restype = wintypes.BOOL
+
+    # SYNCHRONIZE is sufficient for a zero-time wait; no terminate or write rights.
+    handle = kernel32.OpenProcess(0x00100000, False, pid)
+    if not handle:
+        # ERROR_INVALID_PARAMETER proves this positive PID does not exist.
+        # Access denial and other failures cannot establish process death.
+        return ctypes.get_last_error() != 87
+    try:
+        # Only WAIT_OBJECT_0 proves termination. WAIT_TIMEOUT is live; a failed
+        # wait remains inconclusive. Exit code 259 alone is not a liveness test.
+        return kernel32.WaitForSingleObject(handle, 0) != 0
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def _source_sort_key(source: str) -> int:

@@ -173,6 +173,13 @@ praxist status --run-id <run-id> --json
 The targeted form is preferable in automation. It avoids mixing unrelated runs
 when multiple task projects share a host.
 
+On Windows, process liveness uses a nonblocking wait on a process handle with
+synchronization rights; it never sends a signal. Access denial or an inconclusive
+query does not prove termination. Liveness alone does not verify a registered
+run: the existing command and process identity checks still apply. When the
+process probe is unavailable, status preserves unknown state and emits a warning.
+This read-side behavior does not enable Windows research launch or resume.
+
 ### Foreground Monitor
 
 ```bash

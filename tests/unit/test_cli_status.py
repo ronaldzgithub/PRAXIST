@@ -12,11 +12,12 @@ import io
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 def _fake_ps_completed(stdout: str, returncode: int = 0) -> subprocess.CompletedProcess:
@@ -757,6 +758,127 @@ class StatusMergeTest(unittest.TestCase):
         self.assertEqual(entry["model"], "claude-opus-4-7")
 
 
+class WindowsStatusLivenessTest(unittest.TestCase):
+    """Status probes retain query handles and never send Windows signals."""
+
+    def _probe(self, kernel: MagicMock, *, error: int = 0, pid: int = 1234) -> bool:
+        from praxist.cli import status
+
+        with (
+            patch("praxist.cli.status.sys.platform", "win32"),
+            patch("ctypes.WinDLL", return_value=kernel, create=True),
+            patch("ctypes.get_last_error", return_value=error, create=True),
+            patch("praxist.cli.status.os.kill", side_effect=AssertionError("must not signal")),
+        ):
+            return status._pid_is_alive(pid)
+
+    def test_wait_result_and_handle_rights_preserve_unknown(self) -> None:
+        from ctypes import wintypes
+
+        for wait_result, expected in ((0, False), (258, True), (0xFFFFFFFF, True)):
+            with self.subTest(wait_result=wait_result):
+                kernel = MagicMock()
+                handle = 0x123456789
+                kernel.OpenProcess.return_value = handle
+                kernel.WaitForSingleObject.return_value = wait_result
+                self.assertEqual(self._probe(kernel), expected)
+                kernel.OpenProcess.assert_called_once_with(0x00100000, False, 1234)
+                self.assertIs(kernel.OpenProcess.restype, wintypes.HANDLE)
+                kernel.WaitForSingleObject.assert_called_once_with(handle, 0)
+                kernel.CloseHandle.assert_called_once_with(handle)
+
+    def test_only_missing_pid_is_absent_when_open_process_fails(self) -> None:
+        for error, expected in ((87, False), (5, True), (6, True)):
+            with self.subTest(error=error):
+                kernel = MagicMock()
+                kernel.OpenProcess.return_value = None
+                self.assertEqual(self._probe(kernel, error=error), expected)
+                kernel.WaitForSingleObject.assert_not_called()
+                kernel.CloseHandle.assert_not_called()
+
+    def test_pid_outside_dword_range_cannot_query_another_process(self) -> None:
+        kernel = MagicMock()
+        self.assertFalse(self._probe(kernel, pid=0x100000000))
+        kernel.OpenProcess.assert_not_called()
+
+    @unittest.skipUnless(sys.platform == "win32", "requires a real Windows process handle")
+    def test_real_child_survives_status_and_exit_code_259_is_not_live(self) -> None:
+        from praxist.cli import main, registry, status
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            environment = {
+                name: os.environ[name] for name in ("SYSTEMROOT", "WINDIR") if name in os.environ
+            }
+            child = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-I",
+                    "-S",
+                    "-u",
+                    "-c",
+                    "import sys; print('ready', flush=True); sys.stdin.readline(); sys.exit(259)",
+                ],
+                cwd=root,
+                env=environment,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            try:
+                assert child.stdout is not None
+                assert child.stdin is not None
+                self.assertEqual(child.stdout.readline().strip(), "ready")
+                with patch.dict(os.environ, {"PRAXIST_STATE_DIR": str(root / "registry")}):
+                    entry = registry.RegistryEntry(
+                        **_registry_entry_kwargs(
+                            pid=child.pid,
+                            run_dir=str(root / "run"),
+                            log_file=str(root / "run" / "log"),
+                            task_path=str(root / "task"),
+                        )
+                    )
+                    entry_path = registry.write_entry(entry)
+                    original = entry_path.read_bytes()
+                    stdout, stderr = io.StringIO(), io.StringIO()
+                    with (
+                        patch("praxist.cli.status.shutil.which", return_value=None),
+                        patch(
+                            "praxist.cli.status.os.kill",
+                            side_effect=AssertionError("must not signal"),
+                        ),
+                        redirect_stdout(stdout),
+                        redirect_stderr(stderr),
+                        self.assertRaises(SystemExit) as exit_result,
+                    ):
+                        main(["status", "--json"])
+                    self.assertEqual(exit_result.exception.code, 0)
+                    row = json.loads(stdout.getvalue())[0]
+                    self.assertEqual(row["run_id"], entry.run_id)
+                    self.assertEqual(row["state"], "unknown")
+                    self.assertIn("process probe unavailable", stderr.getvalue())
+                    self.assertEqual(entry_path.read_bytes(), original)
+                    self.assertIsNone(child.poll())
+                    self.assertTrue(status.pid_is_alive(child.pid))
+                    # A recycled PID cannot acquire the previous run's identity.
+                    with patch("praxist.cli.status.process_identity_matches", return_value=False):
+                        self.assertIsNone(
+                            status._validate_registry_pid(
+                                entry, {child.pid: (1, "00:01", " ".join(entry.command))}
+                            )
+                        )
+                    self.assertIsNone(child.poll())
+                child.stdin.write("finish\n")
+                child.stdin.flush()
+                self.assertEqual(child.wait(timeout=5), 259)
+                self.assertFalse(status.pid_is_alive(child.pid))
+            finally:
+                if child.poll() is None:
+                    child.kill()
+                child.communicate(timeout=5)
+
+
 class StatusHelpersTest(unittest.TestCase):
     """Direct tests for the smaller helpers in ``praxist.cli.status``."""
 
@@ -766,6 +888,7 @@ class StatusHelpersTest(unittest.TestCase):
         self.assertFalse(status._pid_is_alive(0))
         self.assertFalse(status._pid_is_alive(-5))
 
+    @patch("praxist.cli.status.sys.platform", "linux")
     def test_pid_is_alive_handles_process_lookup_and_permission(self) -> None:
         from praxist.cli import status
 
